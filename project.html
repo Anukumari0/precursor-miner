@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIF Precursor Miner - OIL Safety AI</title>
+
+<!-- Chart.js: charts banane ki library (internet se load hoti hai) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  /* ---------- STYLE (sirf rang aur layout) ---------- */
+  body { margin:0; font-family: Arial, sans-serif; background:#0b1426; color:#e2e8f0; }
+  header { background:#070d1a; padding:14px 20px; border-bottom:3px solid #F59E0B; }
+  header h1 { margin:0; font-size:22px; }
+  header h1 span { color:#F59E0B; }
+  .tags span { display:inline-block; background:#1f2d4a; padding:3px 10px; border-radius:12px; font-size:12px; margin:6px 6px 0 0; }
+  nav { background:#111c33; padding:10px 20px; }
+  nav a { color:#F59E0B; margin-right:18px; text-decoration:none; font-weight:bold; }
+  main { max-width:1000px; margin:auto; padding:10px 20px 40px; }
+  section { background:#111c33; border-radius:10px; padding:18px; margin-top:22px; }
+  h2 { margin-top:0; color:#F59E0B; }
+  textarea { width:100%; height:110px; background:#0b1426; color:white; border:1px solid #334155; border-radius:6px; padding:8px; box-sizing:border-box; }
+  button { background:#F59E0B; color:#0b1426; border:none; padding:8px 14px; border-radius:6px; font-weight:bold; cursor:pointer; margin:4px 4px 4px 0; }
+  button.light { background:#1f2d4a; color:white; }
+  button.active { background:#F59E0B; color:#0b1426; }
+  .red   { background:rgba(239,68,68,.35); color:#fecaca; padding:0 3px; border-radius:3px; }   /* khatarnak shabd */
+  .green { background:rgba(34,197,94,.30); color:#bbf7d0; padding:0 3px; border-radius:3px; }   /* safety shabd */
+  .badge { display:inline-block; padding:6px 12px; border-radius:6px; font-weight:bold; }
+  .badge.high { background:#EF4444; }
+  .badge.low  { background:#16a34a; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid #1f2d4a; }
+  th { color:#94a3b8; }
+  .box { background:#0b1426; padding:10px; border-radius:6px; margin-top:10px; }
+  .note { color:#94a3b8; font-size:12px; }
+</style>
+</head>
+
+<body>
+
+<!-- ================= 1. HEADER + NAVBAR ================= -->
+<header>
+  <h1>SIF Precursor Miner <span>- OIL Safety AI</span></h1>
+  <div class="tags">
+    <span>PS ID: SIH26165</span>
+    <span>Team VC-4W9W</span>
+    <span>Project P55</span>
+  </div>
+</header>
+<nav>
+  <a href="#analyzer">Analyzer</a>
+  <a href="#batch">Batch Digest</a>
+  <a href="#performance">Performance</a>
+  <a href="#labels">Label Guide</a>
+</nav>
+
+<main>
+
+<!-- ================= 2. LIVE INCIDENT ANALYZER ================= -->
+<section id="analyzer">
+  <h2>1. Live Incident Analyzer</h2>
+  <p>Report paste kijiye ya neeche ka sample button dabaiye, phir "Analyze Report" dabaiye.</p>
+  <textarea id="reportBox" placeholder="Near-miss report yahan paste karein..."></textarea>
+  <div id="sampleButtons"></div>
+  <button onclick="analyzeReport()">Analyze Report</button>
+
+  <div id="result" class="box" style="display:none">
+    <div id="status"></div>
+    <p>Confidence: <b id="confidence"></b></p>
+    <p>Report (<span class="red">red</span> = khatarnak, <span class="green">green</span> = safety):</p>
+    <div id="highlighted"></div>
+  </div>
+</section>
+
+<!-- ================= 3. BATCH TABLE ================= -->
+<section id="batch">
+  <h2>2. Batch Processing &amp; Flagged-Report Digest</h2>
+  <p>3,000 sample reports. Filter lagaiye aur CSV download kijiye.</p>
+  <button class="light active" id="btn-all"  onclick="setFilter('all')">All</button>
+  <button class="light"        id="btn-flag" onclick="setFilter('flag')">Flagged SIF Precursors</button>
+  <button class="light"        id="btn-safe" onclick="setFilter('safe')">Safe / Routine</button>
+  <button onclick="downloadCSV()">Download CSV</button>
+  <p class="note" id="tableInfo"></p>
+  <table>
+    <thead><tr><th>ID</th><th>Report</th><th>Risk</th></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</section>
+
+<!-- ================= 4. PERFORMANCE CHARTS ================= -->
+<section id="performance">
+  <h2>3. Model Performance vs Baseline</h2>
+  <p>Hamara model vs TF-IDF + Logistic Regression baseline.</p>
+  <canvas id="compareChart" height="110"></canvas>
+  <p class="note">Note: ye numbers DEMO hain. Asli model train karne ke baad inhe script me <b>RESULTS</b> me badal dein.</p>
+</section>
+
+<!-- ================= 5. LABEL GUIDE ================= -->
+<section id="labels">
+  <h2>4. Label Guide</h2>
+  <p><b style="color:#EF4444">SIF Precursor</b> tab maana jata hai jab report me kuch aisa ho jisse jaan ka khatra ho sakta tha:</p>
+  <ul>
+    <li>Gas leak, H2S, explosion, fire jaisi cheezein</li>
+    <li>Height par kaam bina harness ke</li>
+    <li>Bhaari load ke neeche kisi ka hona</li>
+    <li>Bina permit ya bina lockout ke kaam</li>
+    <li>Confined space me dikkat</li>
+    <li>"narrowly missed" ya "close call" jaisi baatein</li>
+  </ul>
+  <p><b style="color:#22c55e">Safe / Routine</b> tab maana jata hai jab report housekeeping, minor ya cosmetic ho, ya khatre ka control maujood ho (permit in place, properly isolated, PPE worn).</p>
+</section>
+
+</main>
+
+<script>
+/* =====================================================
+   PART A: "AI" KA SIMPLE VERSION
+   Yahan asli model nahi hai. Hum shabdon ki list se
+   score nikaalte hain. Khatarnak shabd = + number,
+   safety shabd = - number.
+   ===================================================== */
+const WORDS = {
+  // khatarnak shabd
+  "gas leak": 3, "h2s": 3, "without harness": 3, "without permit": 3,
+  "without lockout": 3, "not isolated": 2, "narrowly missed": 3, "close call": 2,
+  "suspended load": 2, "under the load": 3, "almost fell": 3, "explosion": 3,
+  "blowout": 3, "fire": 1, "flammable": 2, "confined space": 2,
+  "unconscious": 3, "guard removed": 3, "ignition source": 2, "high pressure": 2,
+  // safety shabd
+  "routine": -2, "housekeeping": -2, "no hazard": -3, "permit in place": -2,
+  "properly isolated": -3, "ppe worn": -2, "minor": -1, "as per sop": -2,
+  "verified": -1, "cosmetic": -2
+};
+
+// Ek report ko check karne wala function
+function analyze(text) {
+  const lower = text.toLowerCase();
+  let total = 0;          // kul score
+  const found = [];       // jo shabd mile
+  for (const word in WORDS) {
+    if (lower.includes(word)) {
+      total += WORDS[word];
+      found.push(word);
+    }
+  }
+  const flagged = total >= 3;   // 3 ya zyada score = SIF Precursor
+  // confidence ka simple formula (sirf demo ke liye)
+  const confidence = flagged ? Math.min(99, 60 + total * 5)
+                             : Math.min(99, 65 - total * 5);
+  return { total, found, flagged, confidence };
+}
+
+/* =====================================================
+   PART B: LIVE ANALYZER (buttons aur output)
+   ===================================================== */
+const SAMPLES = [
+  { name: "Gas leak + hot work",
+    text: "A welder started hot work without permit while a gas leak was reported near the flange. The H2S alarm sounded twice and the ignition source was only a few metres away." },
+  { name: "Fall from height",
+    text: "A rigger was working on the derrick scaffold without harness and almost fell from the edge. A co-worker caught him in time." },
+  { name: "Crane / load",
+    text: "A pipe bundle swung over the crew and one worker was under the load. It narrowly missed him and the area was not blocked." },
+  { name: "Routine housekeeping",
+    text: "Routine housekeeping round done. A minor oil stain was wiped, PPE worn by all, work as per SOP. No hazard found." }
+];
+
+// Sample buttons banao
+const buttonBox = document.getElementById("sampleButtons");
+SAMPLES.forEach(function (s) {
+  const b = document.createElement("button");
+  b.className = "light";
+  b.textContent = s.name;
+  b.onclick = function () {
+    document.getElementById("reportBox").value = s.text;
+    analyzeReport();
+  };
+  buttonBox.appendChild(b);
+});
+
+// Text me HTML ke special characters ko safe banana
+function safe(t) {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// "Analyze Report" dabane par ye chalta hai
+function analyzeReport() {
+  const text = document.getElementById("reportBox").value.trim();
+  if (text === "") { alert("Pehle koi report likhein ya sample dabaiye."); return; }
+
+  const r = analyze(text);
+
+  // Risk status dikhao
+  const status = document.getElementById("status");
+  status.innerHTML = r.flagged
+    ? '<span class="badge high">High-Risk SIF Precursor</span>'
+    : '<span class="badge low">Low-Risk / Routine</span>';
+  document.getElementById("confidence").textContent = r.confidence + "%";
+
+  // Important shabdon ko rang do
+  let html = safe(text);
+  r.found.forEach(function (word) {
+    const colour = WORDS[word] > 0 ? "red" : "green";
+    const pattern = new RegExp(word, "gi");
+    html = html.replace(pattern, function (match) {
+      return '<span class="' + colour + '">' + match + "</span>";
+    });
+  });
+  document.getElementById("highlighted").innerHTML = html;
+  document.getElementById("result").style.display = "block";
+}
+
+/* =====================================================
+   PART C: 3000 SAMPLE REPORTS KI TABLE
+   ===================================================== */
+const PLACES = ["Wellhead Pad 14", "Compressor Station 3", "Drill Site 7", "Tank Farm B", "Pump House", "Flare Area"];
+const DANGER_TEXTS = [
+  "Welder started hot work without permit at PLACE while a gas leak was suspected nearby.",
+  "Worker was on scaffold at PLACE without harness and almost fell from the edge.",
+  "A load swung over the crew at PLACE; one worker was under the load and narrowly missed.",
+  "Pump at PLACE was serviced without lockout and was not isolated; it restarted.",
+  "H2S alarm sounded at PLACE and a worker in a confined space became unconscious."
+];
+const SAFE_TEXTS = [
+  "Routine housekeeping round at PLACE, no hazard found.",
+  "Minor paint peeling on handrail at PLACE, cosmetic issue only.",
+  "Toolbox talk done at PLACE; PPE worn and permit in place, work as per SOP.",
+  "Equipment at PLACE properly isolated and verified before maintenance.",
+  "Signage at PLACE replaced; minor paperwork delay."
+];
+
+// 3000 reports banao (har 3rd report khatarnak, baaki safe)
+const reports = [];
+for (let i = 1; i <= 3000; i++) {
+  const place = PLACES[i % PLACES.length];
+  const template = (i % 3 === 0) ? DANGER_TEXTS[i % 5] : SAFE_TEXTS[i % 5];
+  const text = template.replace("PLACE", place);
+  const result = analyze(text);                       // Part A ka function dobara use kiya
+  reports.push({ id: "NM-" + String(i).padStart(4, "0"), text: text, flagged: result.flagged });
+}
+
+let currentFilter = "all";
+
+// Filter ke hisaab se reports chunna
+function getFiltered() {
+  return reports.filter(function (r) {
+    if (currentFilter === "flag") return r.flagged;
+    if (currentFilter === "safe") return !r.flagged;
+    return true;
+  });
+}
+
+// Table screen par dikhana (pehle 50 rows)
+function showTable() {
+  const list = getFiltered();
+  const rows = list.slice(0, 50).map(function (r) {
+    const badge = r.flagged ? '<span class="badge high">SIF Precursor</span>'
+                            : '<span class="badge low">Safe</span>';
+    return "<tr><td>" + r.id + "</td><td>" + safe(r.text) + "</td><td>" + badge + "</td></tr>";
+  });
+  document.getElementById("tableBody").innerHTML = rows.join("");
+  document.getElementById("tableInfo").textContent =
+    "Total " + list.length + " reports me se pehle " + Math.min(50, list.length) + " dikh rahi hain.";
+}
+
+// Filter button dabane par
+function setFilter(name) {
+  currentFilter = name;
+  ["all", "flag", "safe"].forEach(function (n) {
+    document.getElementById("btn-" + n).className = "light" + (n === name ? " active" : "");
+  });
+  showTable();
+}
+
+// CSV file download karna
+function downloadCSV() {
+  let csv = "report_id,report_text,predicted_label\n";
+  getFiltered().forEach(function (r) {
+    const label = r.flagged ? "SIF_PRECURSOR" : "SAFE";
+    csv += r.id + ',"' + r.text.replace(/"/g, '""') + '",' + label + "\n";
+  });
+  const blob = new Blob([csv], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "flagged_reports.csv";
+  link.click();
+}
+
+/* =====================================================
+   PART D: CHART
+   DHYAN DEIN: ye numbers demo hain. Asli model ke baad
+   yahan apne asli results daalna.
+   ===================================================== */
+const RESULTS = {
+  baseline: [0.81, 0.74, 0.52],   // Macro F1, Recall, Explanation agreement
+  ourModel: [0.91, 0.93, 0.84]
+};
+
+new Chart(document.getElementById("compareChart"), {
+  type: "bar",
+  data: {
+    labels: ["Macro F1", "Precursor Recall", "Explanation Agreement"],
+    datasets: [
+      { label: "TF-IDF + Logistic Regression", data: RESULTS.baseline, backgroundColor: "#64748b" },
+      { label: "Our Model", data: RESULTS.ourModel, backgroundColor: "#F59E0B" }
+    ]
+  },
+  options: {
+    scales: {
+      y: { min: 0, max: 1, ticks: { color: "#94a3b8" } },
+      x: { ticks: { color: "#94a3b8" } }
+    },
+    plugins: { legend: { labels: { color: "#e2e8f0" } } }
+  }
+});
+
+// Page khulte hi table dikhao
+showTable();
+</script>
+</body>
+</html>
